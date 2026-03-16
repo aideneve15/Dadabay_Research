@@ -18,3 +18,18 @@ functions/
 
 # OS
 .DS_Store
+
+# Quarto / R Markdown rendered outputs
+*_files/
+_output/
+*.html
+
+# R environment
+renv/library/
+renv/staging/
+
+# Mac junk
+.DS_Store
+
+# Temporary files
+*.log
