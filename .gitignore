@@ -1,7 +1,5 @@
 # Data
 data/raw/
-*.csv
-
 data/processed/
 
 # Outputs
@@ -9,11 +7,7 @@ results/
 *.png
 *.pdf
 
-# Python
-__pycache__/
-*.pyc
-.env
-.venv/
+
 
 # Notebooks
 docs/
