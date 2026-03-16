@@ -1,0 +1,70 @@
+metadata <- combinedWide |> select(1:4)
+
+# Transform the rest
+transformed <- combinedWide |> 
+  select(-1, -2, -3, -4, -5) |>   # drop metadata columns
+  baseline.corr()     # apply function
+
+# Recombine
+baselineWide <- bind_cols(metadata, transformed) 
+
+species_df = split_by_species(combinedWide)
+green <- species_df[['green']]
+greenWide <-  correct_baseline(green, meta_in = TRUE)
+
+greenLong_raw <- wide_to_long(green)
+greenLong <- wide_to_long(greenWide)
+plot_by_time(greenLong, title_input = "Baseline Corrected")
+plot_by_time(greenLong_raw, title_input = "Raw Spectra")
+
+
+
+white <- species_df[['white']]
+whiteMeta <-  white |> select(1:5)
+whiteWide_un <- correct_baseline(white) 
+whiteWide <- whiteWide_un |> 
+  bind_cols(whiteMeta)
+whiteLong <- wide_to_long(whiteWide)
+plot_by_time(whiteLong)
+
+early <- species_df[['early']]
+earlyMeta <-  early |> select(1:5)
+earlyWide_un <- correct_baseline(early) 
+earlyWide <- earlyWide_un |> 
+  bind_cols(earlyMeta)
+earlyLong <- wide_to_long(earlyWide)
+plot_by_time(earlyLong)
+
+wyoming <- species_df[['wyoming']]
+wyomingMeta <-  wyoming |> select(1:5)
+wyomingWide_un <- correct_baseline(wyoming) 
+wyomingWide <- wyomingWide_un |> 
+  bind_cols(wyomingMeta)
+wyomingLong <- wide_to_long(wyomingWide)
+plot_by_time(wyomingLong)
+
+
+
+
+green <- species_df[['green']]
+greenWide_l1 <-  correct_baseline(green, meta_in = TRUE, l = 1*10^7)
+greenWide_l2 <-  correct_baseline(green, meta_in = TRUE, l = 1*10^8)
+greenWide_l3 <-  correct_baseline(green, meta_in = TRUE, l = 1*10^9)
+greenWide_l4 <-  correct_baseline(green, meta_in = TRUE, l = 1*10^10)
+
+
+greenLong_l1 <- wide_to_long(greenWide_l1)
+greenLong_l2 <- wide_to_long(greenWide_l2)
+greenLong_l3 <- wide_to_long(greenWide_l3)
+greenLong_l4 <- wide_to_long(greenWide_l4)
+
+
+plot_by_time(greenLong_l1, title_input = "Baseline Corrected l1")
+plot_by_time(greenLong_l2, title_input = "Baseline Corrected l2")
+plot_by_time(greenLong_l3, title_input = "Baseline Corrected l3")
+plot_by_time(greenLong_l4, title_input = "Baseline Corrected l4")
+
+
+
+greenLong_raw <- wide_to_long(green)
+plot_by_time(greenLong_raw, title_input = "Raw Spectra")

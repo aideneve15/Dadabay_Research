@@ -1,0 +1,268 @@
+---
+title: "Findings"
+subtitle: "PTW"
+author: "Aiden Everard"
+format: pdf
+code-fold: true
+project:
+  type: default
+  output-dir: output
+---
+
+
+```{r}
+#| echo: true
+#| results: hide
+#| include: false
+#| warning: false
+
+library(tidyverse) # for data manipulation and visualization
+library(patchwork) # for combining plots
+library(here) # for 
+library(arrow)
+library(ptw)
+
+dataWide <- read_parquet('../data_main/processed/all_data_wide.parquet')
+dataLong <- read_parquet('../data_main/processed/data_long_interp.parquet')
+```
+
+```{r}
+all_data_ptw <- dataLong |> 
+  select(-instrument, -enzyme, -time_point, -sample, -sb_color, -file) 
+
+
+#PTW (need to split by unique file, completely random)
+{
+#Select unique files, set a seed for random but repeatable generation
+#Then take the random sample from unqiue files 
+files_u <- unique(dataLong$file)
+set.seed(42)
+files_shuffled <- sample(files_u)
+
+mid <- ceiling(length(files_shuffled)/2)
+
+half1_files <- files_shuffled[1:mid]
+half2_files <- files_shuffled[(mid+1):length(files_shuffled)]
+
+half1 <- dataLong |> filter(file %in% half1_files)
+half2 <- dataLong |> filter(file %in% half2_files)
+
+half1_mat <- half1 %>%
+  select(file, time, intensity) %>%
+  pivot_wider(names_from = time, values_from = intensity) %>%
+  column_to_rownames("file") %>%   # file becomes row names
+  as.matrix()
+
+half2_mat <- half2 %>%
+  select(file, time, intensity) %>%
+  pivot_wider(names_from = time, values_from = intensity) %>%
+  column_to_rownames("file") %>%
+  as.matrix()
+
+res <- ptw(half2_mat, half1_mat, warp.type = "global")
+
+
+
+# Convert reference spectrum to long
+ref_long <- as.data.frame(res$ref) %>%
+  mutate(file = rownames(.)) %>%
+  pivot_longer(-file, names_to = "time", values_to = "intensity") %>%
+  mutate(time = as.numeric(time), type = "Reference")
+
+# Convert warped spectra to long
+sample_long <- as.data.frame(res$sample) %>%
+  mutate(file = rownames(.)) %>%
+  pivot_longer(-file, names_to = "time", values_to = "intensity") %>%
+  mutate(time = as.numeric(time), type = "Warped")
+
+# Combine
+plot_data <- bind_rows(ref_long, sample_long)
+
+ggplot(plot_data, aes(x = time, y = intensity, color = type)) +
+  geom_point() +
+  labs(title = "PTW Warping: Reference vs Warped Spectra") +
+  theme_minimal()
+}
+
+
+#PTW (split by sagebrush color first)
+sbGreen <- dataLong |> filter(sb_color == 'green')
+sbWhite <- dataLong |> filter(sb_color == 'white')
+
+sbGreen_unique <- unique(sbGreen$file)
+set.seed(42)
+files_shuffled <- sample(sbGreen_unique)
+
+mid <- ceiling(length(files_shuffled)/2)
+
+half1_files <- files_shuffled[1:mid]
+half2_files <- files_shuffled[(mid+1):length(files_shuffled)]
+
+half1 <- dataLong |> filter(file %in% half1_files)
+half2 <- dataLong |> filter(file %in% half2_files)
+
+half1_mat <- half1 %>%
+  select(file, time, intensity) %>%
+  pivot_wider(names_from = time, values_from = intensity) %>%
+  column_to_rownames("file") %>%   # file becomes row names
+  as.matrix()
+
+half2_mat <- half2 %>%
+  select(file, time, intensity) %>%
+  pivot_wider(names_from = time, values_from = intensity) %>%
+  column_to_rownames("file") %>%
+  as.matrix()
+
+res <- ptw(half2_mat, half1_mat, warp.type = "global")
+
+
+
+# Convert reference spectrum to long
+ref_long <- as.data.frame(res$ref) %>%
+  mutate(file = rownames(.)) %>%
+  pivot_longer(-file, names_to = "time", values_to = "intensity") %>%
+  mutate(time = as.numeric(time), type = "Reference")
+
+# Convert warped spectra to long
+sample_long <- as.data.frame(res$sample) %>%
+  mutate(file = rownames(.)) %>%
+  pivot_longer(-file, names_to = "time", values_to = "intensity") %>%
+  mutate(time = as.numeric(time), type = "Warped")
+
+# Combine
+plot_data <- bind_rows(ref_long, sample_long)
+
+ggplot()+
+  geom_point(data = plot_data, mapping = aes(x = time, y = intensity, color = type), size = .1) +
+  labs(title = "PTW Warping: Reference vs Warped Spectra") +
+  theme_minimal()
+
+ggplot(data = sbGreen)+
+  geom_point(mapping = aes(x = time, y = intensity, color = sb_color), size = .1)+
+  theme_minimal()
+
+
+
+#PCA on only green sagebrush samples
+
+sbGreen_wide_dad <- sbGreen |> 
+  select(-file) |> 
+  pivot_wider(
+    id_cols = c(enzyme, instrument, sb_color, time_point, sample),
+    names_from = time,
+    values_from = intensity)
+
+dad_pca_sb <- sbGreen_wide_dad |> 
+  filter(instrument == "DAD") |> 
+  select(-instrument, -enzyme, -sb_color, -time_point, -sample) |> 
+  prcomp(center = TRUE, scale. = TRUE)
+
+dad_variance_sb <- summary(dad_pca_sb)$importance[2, 1:15]
+
+p1_scree <- tibble(PC = 1:15, Variance = dad_variance_sb) |>
+  ggplot(aes(x = PC, y = Variance)) +
+  geom_line() + geom_point() +
+  labs(title = "Scree Plot - DAD", x = "PC", y = "Proportion of Variance")
+
+
+dad_scores_sb <- as_tibble(dad_pca_sb$x) %>%
+  mutate(
+    incubation = sbGreen_wide_dad |> filter(instrument == "DAD") |> pull(time_point),
+    sagebrush = sbGreen_wide_dad |> filter(instrument == "DAD") |> pull(sb_color),
+    enzyme = sbGreen_wide_dad |> filter(instrument == "DAD") |> pull(enzyme),
+    sample = sbGreen_wide_dad |> filter(instrument == "DAD") |> pull(sample),
+  )
+
+p1 <- ggplot(dad_scores_sb, aes(x = PC1, y = PC2, color = incubation, shape = sample)) +
+  geom_point(size = 3) +
+  labs(
+    title = "PCA Biplot - DAD Measurement - Pre PTW",
+    subtitle = "Green sagebrush",
+    x = "PC1",
+    y = "PC2",
+    color = "Incubation Time",
+    shape = "Sagebrush Type"
+  ) 
+  #theme(legend.position = "none")
+
+plot_data_meta <- plot_data |> 
+  mutate(
+    file_name = basename(file)          # keeps only CYP_DAD_green_0_m4.CSV
+  ) |>
+  separate_wider_delim(
+    cols = file_name,
+    delim = "_",
+    names = c("enzyme", "instrument", "sb_color", "time_point", "sample"),
+    too_many = "merge"
+  ) |> 
+  mutate(sample = str_extract(sample, "^(.+?)(?=\\.CSV$)"))
+
+sbGreen_wide_dad_ptw <- plot_data_meta |> 
+  select(-file) |> 
+  pivot_wider(
+    id_cols = c(enzyme, instrument, sb_color, time_point, sample),
+    names_from = time,
+    values_from = intensity)
+
+dad_pca <- sbGreen_wide_dad_ptw |> 
+  filter(instrument == "DAD") |> 
+  select(-instrument, -enzyme, -sb_color, -time_point, -sample) |> 
+  prcomp(center = TRUE, scale. = TRUE)
+
+dad_variance <- summary(dad_pca)$importance[2, 1:15]
+
+p2_scree <- tibble(PC = 1:15, Variance = dad_variance) |>
+  ggplot(aes(x = PC, y = Variance)) +
+  geom_line() + geom_point() +
+  labs(title = "Scree Plot - DAD", x = "PC", y = "Proportion of Variance")
+
+
+dad_scores <- as_tibble(dad_pca$x) %>%
+  mutate(
+    incubation = sbGreen_wide_dad_ptw |> filter(instrument == "DAD") |> pull(time_point),
+    sagebrush = sbGreen_wide_dad_ptw |> filter(instrument == "DAD") |> pull(sb_color),
+    enzyme = sbGreen_wide_dad_ptw |> filter(instrument == "DAD") |> pull(enzyme),
+    sample = sbGreen_wide_dad_ptw |> filter(instrument == "DAD") |> pull(sample),
+  )
+
+p2 <- ggplot(dad_scores, aes(x = PC1, y = PC2, color = incubation, shape = sample)) +
+  geom_point(size = 3) +
+  labs(
+    title = "PCA Biplot - DAD Measurement - Post PTW",
+    subtitle = "Green sagebrush",
+    x = "PC1",
+    y = "PC2",
+    color = "Incubation Time",
+    shape = "Sagebrush Type"
+  ) 
+  #theme(legend.position = "none")
+
+p1
+p2
+
+
+p2_4 <- ggplot(dad_scores, aes(x = PC1, y = PC4, color = incubation, shape = sample)) +
+  geom_point(size = 3) +
+  labs(
+    title = "PCA Biplot - DAD Measurement - Post PTW",
+    subtitle = "Green sagebrush",
+    x = "PC1",
+    y = "PC4",
+    color = "Incubation Time",
+    shape = "Sagebrush Type"
+  ) 
+
+p1_4 <- ggplot(dad_scores_sb, aes(x = PC1, y = PC4, color = incubation, shape = sample)) +
+  geom_point(size = 3) +
+  labs(
+    title = "PCA Biplot - DAD Measurement - Pre PTW",
+    subtitle = "Green sagebrush",
+    x = "PC1",
+    y = "PC4",
+    color = "Incubation Time",
+    shape = "Sagebrush Type"
+  ) 
+
+p1_4
+p2_4
+```
