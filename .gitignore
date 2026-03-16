@@ -7,14 +7,16 @@ results/
 *.png
 *.pdf
 
-
-
 # Notebooks
-docs/
+documents/
 .quarto/
 
 # Functions
-functions/
+functions_/apLCMS
+functions_/apLCMS_demo
+functions_/ptw
+functions_/PTW_Demo1.R
+functions_/
 
 # OS
 .DS_Store
@@ -33,3 +35,7 @@ renv/staging/
 
 # Temporary files
 *.log
+
+*.RData
+
+*.RD
