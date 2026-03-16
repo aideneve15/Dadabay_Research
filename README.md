@@ -8,10 +8,10 @@ Raw LC–MS data are preprocessed to remove noise, correct for retention time va
 
 ## Repository Structure
 - `data/` – data directory (raw data not tracked)
-- `_output/` – generated figures and tables
+
 
 ## Requirements
-- Python 3.11
+- R 4.5
 
 
 ## Usage
