@@ -29,6 +29,7 @@ _output/
 # R environment
 renv/library/
 renv/staging/
+renv/
 
 # Mac junk
 .DS_Store
