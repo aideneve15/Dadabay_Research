@@ -268,10 +268,10 @@ library(ptw)
 library(ggrepel)
 
 #Tab one baseline correction
-combinedWide <- read_parquet("data/processed/combinedWide.parquet")
+combinedWide <- read_parquet("data/prepared/combinedWide.parquet")
 combinedWide <- combinedWide |> 
   mutate(time_point = factor(time_point, levels = c("0", "2", "5", "15", "30")))
-combinedLong <- read_parquet("data/processed/combinedLong.parquet")
+combinedLong <- read_parquet("data/prepared/combinedLong.parquet")
 combinedLong <- combinedLong |> 
   mutate(time_point = factor(time_point, levels = c("0", "2", "5", "15", "30")))
 ```
